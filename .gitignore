@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment  
+.env
+
+# FAISS index  
+#Nothing, I stored them in Docker
+
+# IDEs
+.vscode/

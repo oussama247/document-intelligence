@@ -1,0 +1,63 @@
+# docker-compose.yml
+# -------------------
+# Orchestrates the three microservices that make up the Intelligent Document
+# Converter. All services share the same Docker bridge network by default.
+#
+# Start everything:
+#   docker compose up --build
+#
+# Access the UI at:
+#   http://localhost:8501
+
+version: "3.9"
+
+services:
+
+  # --------------------------------------------------------------------------
+  # OCR Service – Tesseract-based text extraction from PDFs and images
+  # --------------------------------------------------------------------------
+  ocr_service:
+    build: ./ocr_service
+    container_name: ocr_service
+    ports:
+      - "8002:8002"   # Exposed for local testing; not strictly required in prod
+    volumes:
+      - ./ocr_service:/app   # Hot-reload during development
+
+  # --------------------------------------------------------------------------
+  # Document Service – FastAPI backend for indexing, RAG Q&A and JSON analysis
+  # --------------------------------------------------------------------------
+  document_service:
+    build: ./document_service
+    container_name: document_service
+    ports:
+      - "8000:8000"   # Exposed for local testing / direct API access
+    depends_on:
+      - ocr_service   # Ensure OCR is reachable before starting
+    volumes:
+      - ./document_service:/app   # Hot-reload during development
+      - faiss_data:/app/faiss_index  # Persist FAISS index across container restarts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Allow container → host communication (Linux)
+    env_file:
+      - .env   # Injects GROQ_API_KEY and any other secrets
+
+  # --------------------------------------------------------------------------
+  # Streamlit App – Browser-based front-end
+  # --------------------------------------------------------------------------
+  streamlit_app:
+    build: ./streamlit_app
+    container_name: streamlit_app
+    ports:
+      - "8501:8501"   # Access the UI at http://localhost:8501
+    depends_on:
+      - document_service   # Ensure the API is up before the UI starts
+    volumes:
+      - ./streamlit_app:/app   # Hot-reload during development
+
+# ------------------------------------------------------------------------------
+# Named volume: the FAISS index is stored here so it survives container restarts
+# and docker compose down (use `docker compose down -v` to also remove the index)
+# ------------------------------------------------------------------------------
+volumes:
+  faiss_data:
